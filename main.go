@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"math"
 	"math/rand"
@@ -9,13 +8,13 @@ import (
 )
 
 const (
-	width        = 80
-	height       = 24
-	cx           = 40.0
-	cy           = 12.0
-	numParticles = 500
-	inSpeed      = 0.25
-	spiralSpeed  = 0.08
+	width        = 320
+	height       = 90
+	cx           = 160.0
+	cy           = 45.0
+	numParticles = 15000
+	inSpeed      = 0.20
+	spiralSpeed  = 0.06
 )
 
 type Particle struct {
@@ -32,14 +31,14 @@ func main() {
 	}
 
 	clear := "\x1b[2J\x1b[H"
-	blackHolePos := "\x1b[12;40H@"
+	blackHolePos := "\x1b[46;161H@"
 
 	for {
 		fmt.Print(clear)
 
-		grid := make([][]byte, height)
+		grid := make([][]int, height)
 		for i := range grid {
-			grid[i] = bytes.Repeat([]byte{' '}, width)
+			grid[i] = make([]int, width)
 		}
 
 		for i := range particles {
@@ -62,7 +61,7 @@ func main() {
 			// Spiral: perpendicular velocity (counter-clockwise)
 			angle := math.Atan2(dy, dx)
 			perpAngle := angle + math.Pi/2
-			spiralFactor := 15.0 / math.Max(dist, 1.0)
+			spiralFactor := 25.0 / math.Max(dist, 1.0)
 			vx += math.Cos(perpAngle) * spiralSpeed * spiralFactor
 			vy += math.Sin(perpAngle) * spiralSpeed * spiralFactor
 
@@ -72,17 +71,49 @@ func main() {
 			// Plot particle, clamped to grid
 			ix := int(math.Max(0, math.Min(float64(width-1), p.x)))
 			iy := int(math.Max(0, math.Min(float64(height-1), p.y)))
-			grid[iy][ix] = '*'
+			grid[iy][ix]++
 		}
 
-		// Render grid with newlines
-		for _, row := range grid {
-			fmt.Println(string(row))
+		// Zero black hole region
+		bhRadius := 2.5
+		for iy := 0; iy < height; iy++ {
+			for ix := 0; ix < width; ix++ {
+				dx := float64(ix) - cx
+				dy := float64(iy) - cy
+				if math.Sqrt(dx*dx+dy*dy) < bhRadius {
+					grid[iy][ix] = 0
+				}
+			}
+		}
+
+		// Render grid with density chars
+		for y := range grid {
+			rowB := make([]byte, 0, width)
+			for x := range grid[y] {
+				count := grid[y][x]
+				var ch byte
+				switch {
+				case count >= 12:
+					ch = '*'
+				case count >= 8:
+					ch = '%'
+				case count >= 5:
+					ch = '#'
+				case count >= 3:
+					ch = '@'
+				case count >= 1:
+					ch = '.'
+				default:
+					ch = ' '
+				}
+				rowB = append(rowB, ch)
+			}
+			fmt.Println(string(rowB))
 		}
 
 		// Draw black hole at center
 		fmt.Print(blackHolePos)
 
-		time.Sleep(60 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 	}
 }
